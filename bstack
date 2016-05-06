@@ -1,10 +1,10 @@
 #!/bin/sh
+# NOTE: External tools needed : procstat, awk, grep
 
 # environment definitions
 : ${GSTACK_PREFIX:=/usr/local}
-: ${BSTACK_CMD=${GSTACK_PREFIX}/share/bstack/gdb_bstack}
-
-# External tools needed : procstat, awk, grep
+: ${BSTACK_CMD:=${GSTACK_PREFIX}/share/bstack/gdb_bstack}
+: ${GDB:=${GSTACK_PREFIX}/bin/gdb}
 
 # Check the presence of the process id
 if [ $# -ne 1 ]; then
@@ -35,7 +35,6 @@ fi
 EXE=$(procstat -h -b $PID | awk '{ print $4 }')
 
 # check the presence of gdb
-GDB=${GSTACK_PREFIX}/bin/gdb
 if [ ! -x ${GDB} ]; then
     echo "gdb not found - has devel/gdb the GDB_LINK option enabled?" 1>&2
     exit 3
@@ -43,8 +42,3 @@ fi
 
 # run gdb reducing the noise 
 $GDB -nx --batch -x "${BSTACK_CMD}" "$EXE" $PID | grep -E '^#|^Thread'
-
-# attach $PID
-# set pagination no
-# set width 0
-# set heigth 0
