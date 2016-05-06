@@ -1,11 +1,26 @@
 #!/bin/sh
 
-# External tools needed : procstat, wc, awk
+# environment definitions
+: ${GSTACK_PREFIX:=/usr/local}
+: ${BSTACK_CMD=${GSTACK_PREFIX}/share/bstack/gdb_bstack}
+
+# External tools needed : procstat, awk, grep
 
 # Check the presence of the process id
 if [ $# -ne 1 ]; then
     echo "Usage: $(basename) <process-id>" 1>&2
     exit 1
+fi
+
+# Check the BSTACK_CMD validity
+if [ ! -r "${BSTACK_CMD}" ]; then
+    # check a possible second option
+    if [ -r ./gdb_bstack ]; then
+	BSTACK_CMD="./gdb_bstack"
+    else
+	echo "gdb script ${BSTACK_CMD} missing" 1>&2
+	exit 4
+    fi
 fi
 
 # Check if the process id is valid
@@ -19,25 +34,17 @@ fi
 # retrieve the executable pathname
 EXE=$(procstat -h -b $PID | awk '{ print $4 }')
 
-# determine the backtrace gdb command
-BT_CMD="thread apply all bt"
-# if the process is not multithread the previous command should be ok
-# if it's not the case, the following should fix it
-#if [ $(procstat -h -t $PID | wc -l) -eq 1 ]; then
-    #BT_CMD="bt"
-#fi
-
 # check the presence of gdb
-GDB=/usr/local/bin/gdb
+GDB=${GSTACK_PREFIX}/bin/gdb
 if [ ! -x ${GDB} ]; then
     echo "gdb not found - has devel/gdb the GDB_LINK option enabled?" 1>&2
     exit 3
 fi
 
 # run gdb reducing the noise 
-$GDB -n --quiet $EXE $PID <<GDBBTCMD
-set pagination no
-set width 0
-set heigth 0
-${BT_CMD}
-GDBBTCMD
+$GDB -nx --batch -x "${BSTACK_CMD}" "$EXE" $PID | grep -E '^#|^Thread'
+
+# attach $PID
+# set pagination no
+# set width 0
+# set heigth 0
