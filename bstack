@@ -1,0 +1,43 @@
+#!/bin/sh
+
+# External tools needed : procstat, wc, awk
+
+# Check the presence of the process id
+if [ $# -ne 1 ]; then
+    echo "Usage: $(basename) <process-id>" 1>&2
+    exit 1
+fi
+
+# Check if the process id is valid
+PID=$1
+procstat $PID >/dev/null 2>/dev/null
+if [ $? -ne 0 ]; then
+    echo "$PID is not a valid process-id" 1>&2
+    exit 2
+fi
+
+# retrieve the executable pathname
+EXE=$(procstat -h -b $PID | awk '{ print $4 }')
+
+# determine the backtrace gdb command
+BT_CMD="thread apply all bt"
+# if the process is not multithread the previous command should be ok
+# if it's not the case, the following should fix it
+#if [ $(procstat -h -t $PID | wc -l) -eq 1 ]; then
+    #BT_CMD="bt"
+#fi
+
+# check the presence of gdb
+GDB=/usr/local/bin/gdb
+if [ ! -x ${GDB} ]; then
+    echo "gdb not found - has devel/gdb the GDB_LINK option enabled?" 1>&2
+    exit 3
+fi
+
+# run gdb reducing the noise 
+$GDB -n --quiet $EXE $PID <<GDBBTCMD
+set pagination no
+set width 0
+set heigth 0
+${BT_CMD}
+GDBBTCMD
